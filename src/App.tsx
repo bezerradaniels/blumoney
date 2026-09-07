@@ -53,7 +53,7 @@ export function App() {
     deleteRecurring,
     generateMonthlyTransactions,
     resetToDemoData,
-  } = useFinancialData();
+  } = useFinancialData(userEmail);
 
   const [currentView, setCurrentView] = useState<NavView>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');

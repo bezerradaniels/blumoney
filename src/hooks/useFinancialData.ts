@@ -16,6 +16,22 @@ import {
   INITIAL_TRANSACTIONS,
 } from '../services/mockData';
 import { generateInstallmentTransactions } from '../utils/installmentCalculator';
+import {
+  fetchRemoteFinancialData,
+  pushLocalDataToSupabase,
+  syncBankAccount,
+  syncAccounts,
+  syncCreditCard,
+  syncCards,
+  syncInvoices,
+  syncTransaction,
+  syncTransactions,
+  deleteTransactionRemote,
+  syncEntity,
+  deleteEntityRemote,
+  syncRecurring,
+  deleteRecurringRemote,
+} from '../services/financialSync';
 
 const STORAGE_KEYS = {
   ACCOUNTS: 'dashbite_accounts_v1',
@@ -26,7 +42,7 @@ const STORAGE_KEYS = {
   RECURRING: 'dashbite_recurring_v1',
 };
 
-export function useFinancialData() {
+export function useFinancialData(userEmail?: string | null) {
   const [accounts, setAccounts] = useState<BankAccount[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
     return saved ? JSON.parse(saved) : INITIAL_BANK_ACCOUNTS;
@@ -56,6 +72,42 @@ export function useFinancialData() {
     const saved = localStorage.getItem(STORAGE_KEYS.RECURRING);
     return saved ? JSON.parse(saved) : [];
   });
+
+  // Load & sync remote data when user is authenticated with Supabase
+  useEffect(() => {
+    if (!userEmail) return;
+
+    fetchRemoteFinancialData().then((remoteData) => {
+      if (!remoteData) return;
+
+      const hasRemoteData =
+        remoteData.accounts.length > 0 ||
+        remoteData.cards.length > 0 ||
+        remoteData.invoices.length > 0 ||
+        remoteData.transactions.length > 0 ||
+        remoteData.entities.length > 0 ||
+        remoteData.recurringTransactions.length > 0;
+
+      if (hasRemoteData) {
+        setAccounts(remoteData.accounts);
+        setCards(remoteData.cards);
+        setInvoices(remoteData.invoices);
+        setTransactions(remoteData.transactions);
+        setEntities(remoteData.entities);
+        setRecurringTransactions(remoteData.recurringTransactions);
+      } else {
+        // Remote database is empty: push local data to Supabase
+        pushLocalDataToSupabase({
+          accounts,
+          cards,
+          invoices,
+          transactions,
+          entities,
+          recurringTransactions,
+        });
+      }
+    });
+  }, [userEmail]);
 
   // Sync state to local storage
   useEffect(() => {
@@ -240,6 +292,10 @@ export function useFinancialData() {
       setCards((prev) => prev.map((c) => (c.id === card.id ? result.updatedCard : c)));
       setInvoices(result.generatedInvoices);
       setTransactions((prev) => [...updatedTxs, ...prev]);
+
+      syncCreditCard(result.updatedCard);
+      syncInvoices(result.generatedInvoices);
+      syncTransactions(updatedTxs);
       return;
     }
 
@@ -267,6 +323,10 @@ export function useFinancialData() {
         setCards((prev) => prev.map((c) => (c.id === card.id ? result.updatedCard : c)));
         setInvoices(result.generatedInvoices);
         setTransactions((prev) => [...updatedTxs, ...prev]);
+
+        syncCreditCard(result.updatedCard);
+        syncInvoices(result.generatedInvoices);
+        syncTransactions(updatedTxs);
         return;
       }
     }
@@ -314,6 +374,9 @@ export function useFinancialData() {
 
     setAccounts(currentAccounts);
     setTransactions((prev) => [singleTx, ...prev]);
+
+    syncAccounts(currentAccounts);
+    syncTransaction(singleTx);
   };
 
   // Toggle paid status on a transaction
@@ -323,23 +386,29 @@ export function useFinancialData() {
         if (t.id !== txId) return t;
 
         const targetAccountId = t.account_id || (accounts[0] ? accounts[0].id : undefined);
+        let updatedAccounts = accounts;
 
         // If paid status changes, adjust bank account balance accordingly
         if (targetAccountId && t.is_paid !== isPaid) {
           const delta = t.type === 'income' ? t.amount : -t.amount;
           const sign = isPaid ? 1 : -1;
 
-          setAccounts((accs) =>
-            accs.map((a) => (a.id === targetAccountId ? { ...a, current_balance: a.current_balance + delta * sign } : a))
+          updatedAccounts = accounts.map((a) =>
+            a.id === targetAccountId ? { ...a, current_balance: a.current_balance + delta * sign } : a
           );
+          setAccounts(updatedAccounts);
+          syncAccounts(updatedAccounts);
         }
 
-        return {
+        const updatedTx: Transaction = {
           ...t,
           account_id: targetAccountId,
           is_paid: isPaid,
           paid_at: isPaid ? new Date().toISOString() : undefined,
         };
+
+        syncTransaction(updatedTx);
+        return updatedTx;
       })
     );
   };
@@ -352,16 +421,20 @@ export function useFinancialData() {
       created_at: new Date().toISOString(),
     };
     setEntities((prev) => [...prev, newEntity]);
+    syncEntity(newEntity);
   };
 
   const updateEntity = (id: string, entityData: Omit<Entity, 'id'>) => {
+    const updatedEntity: Entity = { ...entityData, id };
     setEntities((prev) =>
-      prev.map((e) => (e.id === id ? { ...entityData, id } : e))
+      prev.map((e) => (e.id === id ? updatedEntity : e))
     );
+    syncEntity(updatedEntity);
   };
 
   const deleteEntity = (id: string) => {
     setEntities((prev) => prev.filter((e) => e.id !== id));
+    deleteEntityRemote(id);
   };
 
   // Recurring Transactions Management (Transações Fixas)
@@ -372,6 +445,7 @@ export function useFinancialData() {
       created_at: new Date().toISOString(),
     };
     setRecurringTransactions((prev) => [...prev, newRec]);
+    syncRecurring(newRec);
 
     // Automatically generate item into current month transactions as PENDENTE
     const today = new Date();
@@ -394,13 +468,16 @@ export function useFinancialData() {
   };
 
   const updateRecurring = (id: string, recurringData: Omit<RecurringTransaction, 'id'>) => {
+    const updatedRec: RecurringTransaction = { ...recurringData, id };
     setRecurringTransactions((prev) =>
-      prev.map((r) => (r.id === id ? { ...recurringData, id } : r))
+      prev.map((r) => (r.id === id ? updatedRec : r))
     );
+    syncRecurring(updatedRec);
   };
 
   const deleteRecurring = (id: string) => {
     setRecurringTransactions((prev) => prev.filter((r) => r.id !== id));
+    deleteRecurringRemote(id);
   };
 
   // Generate current month transactions from all active recurring items
@@ -459,6 +536,10 @@ export function useFinancialData() {
     setCards((prev) => prev.map((c) => (c.id === card.id ? updatedCard : c)));
     setInvoices(currentInvoices);
     setTransactions((prev) => [...newTxs, ...prev]);
+
+    syncCreditCard(updatedCard);
+    syncInvoices(currentInvoices);
+    syncTransactions(newTxs);
   };
 
   // Add Bank Account
@@ -468,6 +549,7 @@ export function useFinancialData() {
       id: `acc_${Date.now()}`,
     };
     setAccounts((prev) => [...prev, newAcc]);
+    syncBankAccount(newAcc);
   };
 
   // Add Credit Card
@@ -478,14 +560,16 @@ export function useFinancialData() {
       available_limit: cardData.total_limit,
     };
     setCards((prev) => [...prev, newCard]);
+    syncCreditCard(newCard);
   };
 
   // Transfer between bank accounts
   const transferBetweenAccounts = (fromAccountId: string, toAccountId: string, amount: number) => {
     if (fromAccountId === toAccountId || amount <= 0) return;
 
-    setAccounts((prev) =>
-      prev.map((acc) => {
+    let updatedAccounts = accounts;
+    setAccounts((prev) => {
+      updatedAccounts = prev.map((acc) => {
         if (acc.id === fromAccountId) {
           return { ...acc, current_balance: acc.current_balance - amount };
         }
@@ -493,8 +577,9 @@ export function useFinancialData() {
           return { ...acc, current_balance: acc.current_balance + amount };
         }
         return acc;
-      })
-    );
+      });
+      return updatedAccounts;
+    });
 
     const transferTx: Transaction = {
       id: `tx_trf_${Date.now()}`,
@@ -510,6 +595,9 @@ export function useFinancialData() {
     };
 
     setTransactions((prev) => [transferTx, ...prev]);
+
+    syncAccounts(updatedAccounts);
+    syncTransaction(transferTx);
   };
 
   // Delete transaction
@@ -517,15 +605,16 @@ export function useFinancialData() {
     const txToDelete = transactions.find((t) => t.id === id);
     if (txToDelete && txToDelete.is_paid !== false && txToDelete.account_id && txToDelete.type !== 'transfer') {
       const delta = txToDelete.type === 'income' ? txToDelete.amount : -txToDelete.amount;
-      setAccounts((prev) =>
-        prev.map((acc) =>
-          acc.id === txToDelete.account_id
-            ? { ...acc, current_balance: acc.current_balance - delta }
-            : acc
-        )
+      const updatedAccounts = accounts.map((acc) =>
+        acc.id === txToDelete.account_id
+          ? { ...acc, current_balance: acc.current_balance - delta }
+          : acc
       );
+      setAccounts(updatedAccounts);
+      syncAccounts(updatedAccounts);
     }
     setTransactions((prev) => prev.filter((t) => t.id !== id));
+    deleteTransactionRemote(id);
   };
 
   // Pay invoice
@@ -534,17 +623,22 @@ export function useFinancialData() {
     const card = cards.find((c) => c.id === invoice?.credit_card_id);
     if (!invoice || !card) return;
 
-    setAccounts((prev) =>
-      prev.map((acc) => {
+    let updatedAccounts = accounts;
+    let updatedCards = cards;
+    let updatedInvoices = invoices;
+
+    setAccounts((prev) => {
+      updatedAccounts = prev.map((acc) => {
         if (acc.id === bankAccountId) {
           return { ...acc, current_balance: acc.current_balance - invoice.total_amount };
         }
         return acc;
-      })
-    );
+      });
+      return updatedAccounts;
+    });
 
-    setCards((prev) =>
-      prev.map((c) => {
+    setCards((prev) => {
+      updatedCards = prev.map((c) => {
         if (c.id === card.id) {
           return {
             ...c,
@@ -552,12 +646,18 @@ export function useFinancialData() {
           };
         }
         return c;
-      })
-    );
+      });
+      return updatedCards;
+    });
 
-    setInvoices((prev) =>
-      prev.map((inv) => (inv.id === invoiceId ? { ...inv, status: 'paid' as const } : inv))
-    );
+    setInvoices((prev) => {
+      updatedInvoices = prev.map((inv) => (inv.id === invoiceId ? { ...inv, status: 'paid' as const } : inv));
+      return updatedInvoices;
+    });
+
+    syncAccounts(updatedAccounts);
+    syncCards(updatedCards);
+    syncInvoices(updatedInvoices);
   };
 
   // Reset demo data
