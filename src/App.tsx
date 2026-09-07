@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useFinancialData } from './hooks/useFinancialData';
 import { Sidebar } from './components/layout/Sidebar';
 import type { NavView } from './components/layout/Sidebar';
@@ -10,8 +10,17 @@ import { TransactionsView } from './views/Transactions';
 import { ProjectionsView } from './views/Projections';
 import { TransactionModal } from './components/transactions/TransactionModal';
 import { PdfUploadModal } from './components/cards/PdfUploadModal';
+import { LoginView } from './components/auth/LoginView';
+import { supabase, isSupabaseConfigured } from './services/supabaseClient';
+
+const USER_SESSION_KEY = 'dashbite_user_email_v1';
 
 export function App() {
+  const [userEmail, setUserEmail] = useState<string | null>(() => {
+    return localStorage.getItem(USER_SESSION_KEY);
+  });
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
   const {
     accounts,
     cards,
@@ -42,6 +51,62 @@ export function App() {
   const [isNewTxOpen, setIsNewTxOpen] = useState(false);
   const [isPdfUploadOpen, setIsPdfUploadOpen] = useState(false);
 
+  // Monitor Supabase Auth Session
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setCheckingAuth(false);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+        localStorage.setItem(USER_SESSION_KEY, session.user.email);
+      }
+      setCheckingAuth(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+        localStorage.setItem(USER_SESSION_KEY, session.user.email);
+      } else if (_event === 'SIGNED_OUT') {
+        setUserEmail(null);
+        localStorage.removeItem(USER_SESSION_KEY);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLoginSuccess = (email: string) => {
+    setUserEmail(email);
+    localStorage.setItem(USER_SESSION_KEY, email);
+  };
+
+  const handleLogout = async () => {
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    }
+    setUserEmail(null);
+    localStorage.removeItem(USER_SESSION_KEY);
+  };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0b0f17] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // If not authenticated, render Login screen
+  if (!userEmail) {
+    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex">
       {/* Sidebar Navigation */}
@@ -49,6 +114,8 @@ export function App() {
         currentView={currentView}
         onSelectView={setCurrentView}
         onResetDemo={resetToDemoData}
+        userEmail={userEmail}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}

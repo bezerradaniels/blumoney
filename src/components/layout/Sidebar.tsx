@@ -9,6 +9,7 @@ import {
   Sparkles,
   ChevronRight,
   ShieldCheck,
+  LogOut,
 } from 'lucide-react';
 
 export type NavView = 'dashboard' | 'accounts' | 'cards' | 'transactions' | 'projections';
@@ -17,9 +18,17 @@ interface SidebarProps {
   currentView: NavView;
   onSelectView: (view: NavView) => void;
   onResetDemo: () => void;
+  userEmail?: string;
+  onLogout?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onSelectView, onResetDemo }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  currentView,
+  onSelectView,
+  onResetDemo,
+  userEmail = 'daniel.ddsb@gmail.com',
+  onLogout,
+}) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'accounts', label: 'Contas Bancárias', icon: Building2 },
@@ -27,6 +36,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onSelectView, onR
     { id: 'transactions', label: 'Transações', icon: Receipt },
     { id: 'projections', label: 'Planejamento (6M)', icon: TrendingUp },
   ] as const;
+
+  const initials = userEmail
+    ? userEmail.substring(0, 2).toUpperCase()
+    : 'DB';
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800/80 flex flex-col h-screen fixed left-0 top-0 z-30 select-none">
@@ -82,18 +95,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onSelectView, onR
           <span>Restaurar Dados Demo</span>
         </button>
 
-        <div className="flex items-center gap-3 pt-1">
-          <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-semibold text-slate-200">
-            DB
+        <div className="flex items-center gap-3 pt-1 border-t border-slate-800/60">
+          <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-semibold text-slate-200 shrink-0">
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-slate-200 truncate">Daniel Bezerra</p>
+            <p className="text-xs font-medium text-slate-200 truncate">{userEmail}</p>
             <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3 text-emerald-400 inline" /> Conta Verificada
+              <ShieldCheck className="w-3 h-3 text-emerald-400 inline" /> Conta Ativa
             </p>
           </div>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+              title="Sair do sistema"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </aside>
   );
 };
+
