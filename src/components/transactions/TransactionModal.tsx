@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -52,6 +52,23 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [fromAccountId, setFromAccountId] = useState(() => (accounts[0] ? accounts[0].id : ''));
   const [toAccountId, setToAccountId] = useState(() => (accounts[1] ? accounts[1].id : ''));
 
+  useEffect(() => {
+    if (isOpen) {
+      if (!selectedAccountId && accounts.length > 0) {
+        setSelectedAccountId(accounts[0].id);
+      }
+      if (!selectedCardId && cards.length > 0) {
+        setSelectedCardId(cards[0].id);
+      }
+      if (!fromAccountId && accounts.length > 0) {
+        setFromAccountId(accounts[0].id);
+      }
+      if (!toAccountId && accounts.length > 1) {
+        setToAccountId(accounts[1].id);
+      }
+    }
+  }, [isOpen, accounts, cards, selectedAccountId, selectedCardId, fromAccountId, toAccountId]);
+
   const categoriesList = [
     { value: 'Alimentação', label: 'Alimentação / Supermercado' },
     { value: 'Moradia', label: 'Moradia / Aluguel' },
@@ -79,6 +96,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     e.preventDefault();
     if (amount <= 0) return;
 
+    const activeAccountId = selectedAccountId || (accounts[0] ? accounts[0].id : undefined);
+
     if (txTab === 'card_expense') {
       onAddTransaction({
         type: 'expense',
@@ -86,7 +105,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         amount,
         date,
         category,
-        credit_card_id: selectedCardId,
+        credit_card_id: selectedCardId || (cards[0] ? cards[0].id : undefined),
         installmentTotal: parseInt(installmentTotal, 10) || 1,
         payment_method: 'credit_card',
         entity_id: selectedEntityId || undefined,
@@ -99,7 +118,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         amount,
         date,
         category,
-        account_id: selectedAccountId,
+        account_id: activeAccountId,
         payment_method: paymentMethod,
         entity_id: selectedEntityId || undefined,
         is_paid: isPaid,
@@ -111,7 +130,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         amount,
         date,
         category,
-        account_id: selectedAccountId,
+        account_id: activeAccountId,
         payment_method: paymentMethod,
         entity_id: selectedEntityId || undefined,
         is_paid: isPaid,
@@ -123,7 +142,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         amount,
         date,
         category: 'Transferência',
-        account_id: fromAccountId,
+        account_id: fromAccountId || (accounts[0] ? accounts[0].id : undefined),
         payment_method: 'transfer',
         is_paid: true,
       });

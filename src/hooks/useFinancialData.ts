@@ -82,6 +82,46 @@ export function useFinancialData() {
     localStorage.setItem(STORAGE_KEYS.RECURRING, JSON.stringify(recurringTransactions));
   }, [recurringTransactions]);
 
+  // Self-healing: reconcile any paid non-card transactions missing account_id
+  useEffect(() => {
+    const unassignedPaidTxs = transactions.filter(
+      (t) => (t.type === 'income' || t.type === 'expense') && !t.credit_card_id && (t.is_paid !== false) && (!t.account_id || t.account_id === '')
+    );
+
+    if (unassignedPaidTxs.length > 0) {
+      let mainAcc = accounts[0];
+      let updatedAccounts = [...accounts];
+
+      if (!mainAcc) {
+        mainAcc = {
+          id: `acc_main_${Date.now()}`,
+          name: 'Conta Principal',
+          type: 'checking',
+          current_balance: 0,
+          color: '#10b981',
+        };
+        updatedAccounts = [mainAcc];
+      }
+
+      let totalDelta = 0;
+      const updatedTxs = transactions.map((t) => {
+        if ((t.type === 'income' || t.type === 'expense') && !t.credit_card_id && (t.is_paid !== false) && (!t.account_id || t.account_id === '')) {
+          const delta = t.type === 'income' ? t.amount : -t.amount;
+          totalDelta += delta;
+          return { ...t, account_id: mainAcc.id };
+        }
+        return t;
+      });
+
+      updatedAccounts = updatedAccounts.map((acc) =>
+        acc.id === mainAcc.id ? { ...acc, current_balance: acc.current_balance + totalDelta } : acc
+      );
+
+      setAccounts(updatedAccounts);
+      setTransactions(updatedTxs);
+    }
+  }, []);
+
   // Derived financial metrics
   const totalNetBalance = useMemo(() => {
     return accounts.reduce((sum, acc) => sum + acc.current_balance, 0);
@@ -232,6 +272,21 @@ export function useFinancialData() {
     }
 
     // Case 3: Debit/Account Transaction (Income or Expense)
+    let targetAccountId = account_id || (accounts[0] ? accounts[0].id : undefined);
+    let currentAccounts = [...accounts];
+
+    if (!targetAccountId && currentAccounts.length === 0) {
+      const defaultAcc: BankAccount = {
+        id: `acc_main_${Date.now()}`,
+        name: 'Conta Principal',
+        type: 'checking',
+        current_balance: 0,
+        color: '#10b981',
+      };
+      targetAccountId = defaultAcc.id;
+      currentAccounts = [defaultAcc];
+    }
+
     const singleTx: Transaction = {
       id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
       type,
@@ -239,26 +294,25 @@ export function useFinancialData() {
       amount,
       date,
       category,
-      account_id,
+      account_id: targetAccountId,
       payment_method: payment_method || 'pix',
       entity_id,
       is_paid,
       created_at: new Date().toISOString(),
     };
 
-    if (account_id && is_paid) {
-      setAccounts((prev) =>
-        prev.map((acc) => {
-          if (acc.id !== account_id) return acc;
-          const delta = type === 'income' ? amount : -amount;
-          return {
-            ...acc,
-            current_balance: acc.current_balance + delta,
-          };
-        })
-      );
+    if (targetAccountId && is_paid) {
+      currentAccounts = currentAccounts.map((acc) => {
+        if (acc.id !== targetAccountId) return acc;
+        const delta = type === 'income' ? amount : -amount;
+        return {
+          ...acc,
+          current_balance: acc.current_balance + delta,
+        };
+      });
     }
 
+    setAccounts(currentAccounts);
     setTransactions((prev) => [singleTx, ...prev]);
   };
 
@@ -268,18 +322,21 @@ export function useFinancialData() {
       prev.map((t) => {
         if (t.id !== txId) return t;
 
+        const targetAccountId = t.account_id || (accounts[0] ? accounts[0].id : undefined);
+
         // If paid status changes, adjust bank account balance accordingly
-        if (t.account_id && t.is_paid !== isPaid) {
+        if (targetAccountId && t.is_paid !== isPaid) {
           const delta = t.type === 'income' ? t.amount : -t.amount;
           const sign = isPaid ? 1 : -1;
 
           setAccounts((accs) =>
-            accs.map((a) => (a.id === t.account_id ? { ...a, current_balance: a.current_balance + delta * sign } : a))
+            accs.map((a) => (a.id === targetAccountId ? { ...a, current_balance: a.current_balance + delta * sign } : a))
           );
         }
 
         return {
           ...t,
+          account_id: targetAccountId,
           is_paid: isPaid,
           paid_at: isPaid ? new Date().toISOString() : undefined,
         };
@@ -457,6 +514,17 @@ export function useFinancialData() {
 
   // Delete transaction
   const deleteTransaction = (id: string) => {
+    const txToDelete = transactions.find((t) => t.id === id);
+    if (txToDelete && txToDelete.is_paid !== false && txToDelete.account_id && txToDelete.type !== 'transfer') {
+      const delta = txToDelete.type === 'income' ? txToDelete.amount : -txToDelete.amount;
+      setAccounts((prev) =>
+        prev.map((acc) =>
+          acc.id === txToDelete.account_id
+            ? { ...acc, current_balance: acc.current_balance - delta }
+            : acc
+        )
+      );
+    }
     setTransactions((prev) => prev.filter((t) => t.id !== id));
   };
 
