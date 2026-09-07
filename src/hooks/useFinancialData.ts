@@ -16,6 +16,7 @@ import {
   INITIAL_TRANSACTIONS,
 } from '../services/mockData';
 import { generateInstallmentTransactions } from '../utils/installmentCalculator';
+import { buildUserSeedData } from '../services/seedUserInvoices';
 import {
   fetchRemoteFinancialData,
   pushLocalDataToSupabase,
@@ -543,6 +544,21 @@ export function useFinancialData(userEmail?: string | null) {
     syncTransactions(newTxs);
   };
 
+  // Import All 3 PDF Invoices (Nubank, Itaú, Mercado Pago)
+  const importUserInvoicesSeed = () => {
+    const seed = buildUserSeedData();
+    setCards(seed.cards);
+    setInvoices(seed.invoices);
+    setTransactions((prev) => {
+      const nonCardTxs = prev.filter((t) => !t.credit_card_id);
+      return [...seed.transactions, ...nonCardTxs];
+    });
+
+    syncCards(seed.cards);
+    syncInvoices(seed.invoices);
+    syncTransactions(seed.transactions);
+  };
+
   // Bank Account Management
   const addBankAccount = (accData: Omit<BankAccount, 'id'>) => {
     const newAcc: BankAccount = {
@@ -722,6 +738,7 @@ export function useFinancialData(userEmail?: string | null) {
     updateRecurring,
     deleteRecurring,
     generateMonthlyTransactions,
+    importUserInvoicesSeed,
     resetToDemoData,
   };
 }

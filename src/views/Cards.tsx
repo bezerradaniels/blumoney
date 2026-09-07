@@ -17,6 +17,7 @@ interface CardsViewProps {
   onOpenPdfUpload: () => void;
   onAddCreditCard: (card: Omit<CreditCard, 'id' | 'available_limit'>) => void;
   onPayInvoice: (invoiceId: string, accountId: string) => void;
+  onImportUserSeed?: () => void;
 }
 
 export const CardsView: React.FC<CardsViewProps> = ({
@@ -27,9 +28,10 @@ export const CardsView: React.FC<CardsViewProps> = ({
   onOpenPdfUpload,
   onAddCreditCard,
   onPayInvoice,
+  onImportUserSeed,
 }) => {
   const [selectedCardId, setSelectedCardId] = useState(() => (cards[0] ? cards[0].id : ''));
-  const [selectedMonth, setSelectedMonth] = useState(9); // Sep
+  const [selectedMonth, setSelectedMonth] = useState(8); // Aug
   const [selectedYear, setSelectedYear] = useState(2026);
 
   const [isAddCardOpen, setIsAddCardOpen] = useState(false);
@@ -94,14 +96,24 @@ export const CardsView: React.FC<CardsViewProps> = ({
             Acompanhe limites, datas de fechamento, vencimentos e o detalhamento das faturas.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {onImportUserSeed && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<FileUp className="w-4 h-4 text-emerald-600" />}
+              onClick={onImportUserSeed}
+            >
+              Importar 3 Faturas PDF
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"
             icon={<FileUp className="w-4 h-4 text-emerald-600" />}
             onClick={onOpenPdfUpload}
           >
-            Importar Fatura PDF
+            Importar PDF
           </Button>
           <Button
             variant="primary"

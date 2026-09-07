@@ -54,6 +54,7 @@ export function App() {
     updateRecurring,
     deleteRecurring,
     generateMonthlyTransactions,
+    importUserInvoicesSeed,
     resetToDemoData,
   } = useFinancialData(userEmail);
 
@@ -186,6 +187,7 @@ export function App() {
               onOpenPdfUpload={() => setIsPdfUploadOpen(true)}
               onAddCreditCard={addCreditCard}
               onPayInvoice={payInvoice}
+              onImportUserSeed={importUserInvoicesSeed}
             />
           )}
 
