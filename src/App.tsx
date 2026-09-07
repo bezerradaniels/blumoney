@@ -41,6 +41,8 @@ export function App() {
     togglePaidTransaction,
     importParsedInvoiceItems,
     addBankAccount,
+    updateBankAccount,
+    deleteBankAccount,
     addCreditCard,
     transferBetweenAccounts,
     deleteTransaction,
@@ -169,6 +171,8 @@ export function App() {
               accounts={accounts}
               transactions={transactions}
               onAddBankAccount={addBankAccount}
+              onUpdateBankAccount={updateBankAccount}
+              onDeleteBankAccount={deleteBankAccount}
               onTransfer={transferBetweenAccounts}
             />
           )}

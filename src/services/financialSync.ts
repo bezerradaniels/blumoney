@@ -103,6 +103,15 @@ export async function syncBankAccount(account: BankAccount) {
   }
 }
 
+export async function deleteBankAccountRemote(id: string) {
+  if (!isSupabaseConfigured) return;
+  try {
+    await supabase.from('bank_accounts').delete().eq('id', id);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 export async function syncAccounts(accounts: BankAccount[]) {
   if (!isSupabaseConfigured || accounts.length === 0) return;
   try {

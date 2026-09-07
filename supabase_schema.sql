@@ -1,6 +1,3 @@
--- DashBite Finance - Supabase Database Schema
--- Execute este script no SQL Editor do seu projeto Supabase (bsvuplgmkqhzhhmnvtpp)
-
 -- 1. CONTAS BANCÁRIAS (bank_accounts)
 create table if not exists public.bank_accounts (
   id text primary key,
@@ -12,6 +9,7 @@ create table if not exists public.bank_accounts (
   account_number text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+alter table public.bank_accounts add column if not exists user_id uuid default auth.uid();
 
 -- 2. CARTÕES DE CRÉDITO (credit_cards)
 create table if not exists public.credit_cards (
@@ -28,6 +26,7 @@ create table if not exists public.credit_cards (
   last_digits text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+alter table public.credit_cards add column if not exists user_id uuid default auth.uid();
 
 -- 3. FATURAS DE CARTÃO (card_invoices)
 create table if not exists public.card_invoices (
@@ -42,6 +41,7 @@ create table if not exists public.card_invoices (
   pdf_source_url text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+alter table public.card_invoices add column if not exists user_id uuid default auth.uid();
 
 -- 4. PESSOAS E EMPRESAS / FAVORECIDOS (entities)
 create table if not exists public.entities (
@@ -55,6 +55,7 @@ create table if not exists public.entities (
   pix_keys jsonb default '[]'::jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+alter table public.entities add column if not exists user_id uuid default auth.uid();
 
 -- 5. TRANSAÇÕES FIXAS / RECORRENTES (recurring_transactions)
 create table if not exists public.recurring_transactions (
@@ -71,6 +72,7 @@ create table if not exists public.recurring_transactions (
   is_active boolean not null default true,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+alter table public.recurring_transactions add column if not exists user_id uuid default auth.uid();
 
 -- 6. TRANSAÇÕES FINANCEIRAS (transactions)
 create table if not exists public.transactions (
@@ -94,8 +96,9 @@ create table if not exists public.transactions (
   recurring_id text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+alter table public.transactions add column if not exists user_id uuid default auth.uid();
 
--- SEGURANÇA: HABILITAR ROW LEVEL SECURITY (RLS) EM TODAS AS TABELAS
+-- SEGURANÇA: HABILITAR ROW LEVEL SECURITY (RLS)
 alter table public.bank_accounts enable row level security;
 alter table public.credit_cards enable row level security;
 alter table public.card_invoices enable row level security;
@@ -103,7 +106,7 @@ alter table public.entities enable row level security;
 alter table public.recurring_transactions enable row level security;
 alter table public.transactions enable row level security;
 
--- POLÍTICAS RLS (Garantem que cada usuário gerencie apenas seus próprios registros)
+-- POLÍTICAS RLS
 drop policy if exists "Users can manage their own bank_accounts" on public.bank_accounts;
 create policy "Users can manage their own bank_accounts" on public.bank_accounts
   for all to authenticated
@@ -140,7 +143,7 @@ create policy "Users can manage their own transactions" on public.transactions
   using ( (select auth.uid()) = user_id )
   with check ( (select auth.uid()) = user_id );
 
--- CONCEDER PERMISSÕES PARA A ROLE AUTHENTICATED
+-- PERMISSÕES DE ROLE
 grant select, insert, update, delete on public.bank_accounts to authenticated;
 grant select, insert, update, delete on public.credit_cards to authenticated;
 grant select, insert, update, delete on public.card_invoices to authenticated;

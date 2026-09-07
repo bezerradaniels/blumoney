@@ -20,6 +20,7 @@ import {
   fetchRemoteFinancialData,
   pushLocalDataToSupabase,
   syncBankAccount,
+  deleteBankAccountRemote,
   syncAccounts,
   syncCreditCard,
   syncCards,
@@ -542,7 +543,7 @@ export function useFinancialData(userEmail?: string | null) {
     syncTransactions(newTxs);
   };
 
-  // Add Bank Account
+  // Bank Account Management
   const addBankAccount = (accData: Omit<BankAccount, 'id'>) => {
     const newAcc: BankAccount = {
       ...accData,
@@ -550,6 +551,19 @@ export function useFinancialData(userEmail?: string | null) {
     };
     setAccounts((prev) => [...prev, newAcc]);
     syncBankAccount(newAcc);
+  };
+
+  const updateBankAccount = (id: string, accData: Omit<BankAccount, 'id'>) => {
+    const updatedAcc: BankAccount = { ...accData, id };
+    setAccounts((prev) =>
+      prev.map((acc) => (acc.id === id ? updatedAcc : acc))
+    );
+    syncBankAccount(updatedAcc);
+  };
+
+  const deleteBankAccount = (id: string) => {
+    setAccounts((prev) => prev.filter((acc) => acc.id !== id));
+    deleteBankAccountRemote(id);
   };
 
   // Add Credit Card
@@ -695,6 +709,8 @@ export function useFinancialData(userEmail?: string | null) {
     togglePaidTransaction,
     importParsedInvoiceItems,
     addBankAccount,
+    updateBankAccount,
+    deleteBankAccount,
     addCreditCard,
     transferBetweenAccounts,
     deleteTransaction,

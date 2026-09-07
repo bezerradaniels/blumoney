@@ -6,12 +6,14 @@ import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { CurrencyInput } from '../components/ui/CurrencyInput';
-import { Plus, ArrowRightLeft, ShieldCheck, Building2 } from 'lucide-react';
+import { Plus, ArrowRightLeft, ShieldCheck, Building2, Pencil, Trash2 } from 'lucide-react';
 
 interface AccountsViewProps {
   accounts: BankAccount[];
   transactions: Transaction[];
   onAddBankAccount: (acc: Omit<BankAccount, 'id'>) => void;
+  onUpdateBankAccount?: (id: string, acc: Omit<BankAccount, 'id'>) => void;
+  onDeleteBankAccount?: (id: string) => void;
   onTransfer: (fromId: string, toId: string, amount: number) => void;
 }
 
@@ -19,10 +21,13 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
   accounts,
   transactions,
   onAddBankAccount,
+  onUpdateBankAccount,
+  onDeleteBankAccount,
   onTransfer,
 }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
 
   // New Account fields
   const [name, setName] = useState('');
@@ -30,6 +35,13 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
   const [balance, setBalance] = useState<number>(0);
   const [color, setColor] = useState('#34d399');
   const [accountNumber, setAccountNumber] = useState('');
+
+  // Edit Account fields
+  const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState<'checking' | 'savings' | 'investment'>('checking');
+  const [editBalance, setEditBalance] = useState<number>(0);
+  const [editColor, setEditColor] = useState('#34d399');
+  const [editAccountNumber, setEditAccountNumber] = useState('');
 
   // Transfer fields
   const [fromId, setFromId] = useState(() => (accounts[0] ? accounts[0].id : ''));
@@ -49,6 +61,38 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
     setName('');
     setBalance(0);
     setIsAddModalOpen(false);
+  };
+
+  const handleStartEdit = (acc: BankAccount) => {
+    setEditingAccount(acc);
+    setEditName(acc.name);
+    setEditType(acc.type);
+    setEditBalance(acc.current_balance);
+    setEditColor(acc.color);
+    setEditAccountNumber(acc.account_number || '');
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAccount || !editName.trim()) return;
+    if (onUpdateBankAccount) {
+      onUpdateBankAccount(editingAccount.id, {
+        name: editName,
+        type: editType,
+        current_balance: editBalance,
+        color: editColor,
+        account_number: editAccountNumber || '0001 / 12345-6',
+      });
+    }
+    setEditingAccount(null);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Tem certeza que deseja excluir esta conta bancária?')) {
+      if (onDeleteBankAccount) {
+        onDeleteBankAccount(id);
+      }
+    }
   };
 
   const handleTransferSubmit = (e: React.FormEvent) => {
@@ -137,7 +181,7 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
               return (
                 <div
                   key={acc.id}
-                  className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs hover:border-emerald-400 transition-all flex flex-col justify-between relative overflow-hidden"
+                  className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs hover:border-emerald-400 transition-all flex flex-col justify-between relative overflow-hidden group"
                   style={{ borderTopWidth: '4px', borderTopColor: acc.color }}
                 >
                   <div>
@@ -149,10 +193,28 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
                           ? 'Poupança'
                           : 'Investimentos'}
                       </span>
-                      <span
-                        className="w-3.5 h-3.5 rounded-full border border-slate-300 shadow-xs"
-                        style={{ backgroundColor: acc.color }}
-                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleStartEdit(acc)}
+                          className="p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all cursor-pointer"
+                          title="Editar Conta"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        {onDeleteBankAccount && (
+                          <button
+                            onClick={() => handleDelete(acc.id)}
+                            className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                            title="Excluir Conta"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-slate-300 shadow-xs"
+                          style={{ backgroundColor: acc.color }}
+                        />
+                      </div>
                     </div>
                     <h3 className="text-xl font-bold text-slate-900 mt-2">{acc.name}</h3>
                     <p className="text-xs text-slate-400 font-mono mt-0.5">
@@ -238,6 +300,65 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
             </Button>
             <Button type="submit" variant="primary">
               Cadastrar Conta
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Account Modal */}
+      <Modal
+        isOpen={Boolean(editingAccount)}
+        onClose={() => setEditingAccount(null)}
+        title="Editar Conta Bancária"
+        subtitle="Atualize o nome, tipo, saldo atual ou cor de identificação da conta."
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <Input
+            label="Nome da Conta / Instituição"
+            placeholder="ex.: Nubank, Itaú Corrente, BTG Pactual..."
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            required
+          />
+          <Select
+            label="Tipo de Conta"
+            options={[
+              { value: 'checking', label: 'Conta Corrente' },
+              { value: 'savings', label: 'Poupança' },
+              { value: 'investment', label: 'Investimentos' },
+            ]}
+            value={editType}
+            onChange={(e) => setEditType(e.target.value as any)}
+          />
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1.5">
+              Saldo Atual (Formato Bancário)
+            </label>
+            <CurrencyInput value={editBalance} onChange={setEditBalance} required />
+          </div>
+          <Input
+            label="Número da Conta / Agência (Opcional)"
+            placeholder="ex.: 0001 / 987654-3"
+            value={editAccountNumber}
+            onChange={(e) => setEditAccountNumber(e.target.value)}
+          />
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-slate-700">
+              Cor de Identificação
+            </label>
+            <input
+              type="color"
+              value={editColor}
+              onChange={(e) => setEditColor(e.target.value)}
+              className="w-full h-10 bg-white border border-slate-300 rounded-lg cursor-pointer p-1"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button type="button" variant="outline" onClick={() => setEditingAccount(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="primary">
+              Salvar Alterações
             </Button>
           </div>
         </form>
