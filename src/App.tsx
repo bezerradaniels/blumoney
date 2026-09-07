@@ -7,6 +7,8 @@ import { DashboardView } from './views/Dashboard';
 import { AccountsView } from './views/Accounts';
 import { CardsView } from './views/Cards';
 import { TransactionsView } from './views/Transactions';
+import { RecurringView } from './views/Recurring';
+import { EntitiesView } from './views/Entities';
 import { ProjectionsView } from './views/Projections';
 import { TransactionModal } from './components/transactions/TransactionModal';
 import { PdfUploadModal } from './components/cards/PdfUploadModal';
@@ -26,6 +28,8 @@ export function App() {
     cards,
     invoices,
     transactions,
+    entities,
+    recurringTransactions,
     totalNetBalance,
     monthlyIncome,
     monthlyExpenses,
@@ -34,12 +38,20 @@ export function App() {
     totalCreditLimit,
     nextUpcomingInvoice,
     addTransaction,
+    togglePaidTransaction,
     importParsedInvoiceItems,
     addBankAccount,
     addCreditCard,
     transferBetweenAccounts,
     deleteTransaction,
     payInvoice,
+    addEntity,
+    updateEntity,
+    deleteEntity,
+    addRecurring,
+    updateRecurring,
+    deleteRecurring,
+    generateMonthlyTransactions,
     resetToDemoData,
   } = useFinancialData();
 
@@ -96,8 +108,8 @@ export function App() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen bg-[#0b0f17] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -108,7 +120,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex">
       {/* Sidebar Navigation */}
       <Sidebar
         currentView={currentView}
@@ -138,6 +150,7 @@ export function App() {
               cards={cards}
               invoices={invoices}
               transactions={transactions}
+              entities={entities}
               totalNetBalance={totalNetBalance}
               monthlyIncome={monthlyIncome}
               monthlyExpenses={monthlyExpenses}
@@ -147,6 +160,7 @@ export function App() {
               nextUpcomingInvoice={nextUpcomingInvoice}
               onOpenPdfUpload={() => setIsPdfUploadOpen(true)}
               onDeleteTransaction={deleteTransaction}
+              onTogglePaid={togglePaidTransaction}
             />
           )}
 
@@ -176,8 +190,31 @@ export function App() {
               transactions={transactions}
               accounts={accounts}
               cards={cards}
+              entities={entities}
               onOpenNewTransaction={() => setIsNewTxOpen(true)}
               onDeleteTransaction={deleteTransaction}
+              onTogglePaid={togglePaidTransaction}
+            />
+          )}
+
+          {currentView === 'recurring' && (
+            <RecurringView
+              recurringTransactions={recurringTransactions}
+              accounts={accounts}
+              entities={entities}
+              onAddRecurring={addRecurring}
+              onUpdateRecurring={updateRecurring}
+              onDeleteRecurring={deleteRecurring}
+              onGenerateMonthlyTransactions={generateMonthlyTransactions}
+            />
+          )}
+
+          {currentView === 'entities' && (
+            <EntitiesView
+              entities={entities}
+              onAddEntity={addEntity}
+              onUpdateEntity={updateEntity}
+              onDeleteEntity={deleteEntity}
             />
           )}
 
@@ -193,6 +230,7 @@ export function App() {
         onClose={() => setIsNewTxOpen(false)}
         accounts={accounts}
         cards={cards}
+        entities={entities}
         onAddTransaction={addTransaction}
       />
 

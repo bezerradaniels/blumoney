@@ -1,4 +1,4 @@
--- Schema SQL para o projeto DashBite Finance no Supabase Project: bsvuplgmkqhzhhmnvtpp
+-- Schema SQL Completo para o projeto DashBite Finance no Supabase Project: bsvuplgmkqhzhhmnvtpp
 
 -- 1. Tabela de Contas Bancárias
 CREATE TABLE IF NOT EXISTS public.bank_accounts (
@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.bank_accounts (
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('checking', 'savings', 'investment')),
   current_balance NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-  color TEXT NOT NULL DEFAULT '#3b82f6',
+  color TEXT NOT NULL DEFAULT '#34d399',
   account_number TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.credit_cards (
   closing_day INT NOT NULL CHECK (closing_day BETWEEN 1 AND 31),
   due_day INT NOT NULL CHECK (due_day BETWEEN 1 AND 31),
   card_brand TEXT NOT NULL DEFAULT 'other',
-  theme_color TEXT NOT NULL DEFAULT '#6366f1',
+  theme_color TEXT NOT NULL DEFAULT '#34d399',
   last_digits TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -39,7 +39,42 @@ CREATE TABLE IF NOT EXISTS public.card_invoices (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 4. Tabela de Transações
+-- 4. Tabela de Pessoas e Empresas (Contatos/Fornecedores)
+CREATE TABLE IF NOT EXISTS public.entities (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('individual', 'company')),
+  document TEXT,
+  email TEXT,
+  phone TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 5. Tabela de Chaves PIX vinculadas às Pessoas/Empresas
+CREATE TABLE IF NOT EXISTS public.entity_pix_keys (
+  id TEXT PRIMARY KEY,
+  entity_id TEXT NOT NULL REFERENCES public.entities(id) ON DELETE CASCADE,
+  key_type TEXT NOT NULL CHECK (key_type IN ('cpf', 'cnpj', 'email', 'phone', 'random')),
+  key_value TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 6. Tabela de Transações Fixas / Recorrentes
+CREATE TABLE IF NOT EXISTS public.recurring_transactions (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+  description TEXT NOT NULL,
+  amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+  category TEXT NOT NULL DEFAULT 'Moradia',
+  due_day INT NOT NULL CHECK (due_day BETWEEN 1 AND 31),
+  payment_method TEXT DEFAULT 'pix',
+  account_id TEXT REFERENCES public.bank_accounts(id) ON DELETE SET NULL,
+  entity_id TEXT REFERENCES public.entities(id) ON DELETE SET NULL,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 7. Tabela de Transações
 CREATE TABLE IF NOT EXISTS public.transactions (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'transfer')),
@@ -53,6 +88,11 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   installment_group_id TEXT,
   installment_current INT,
   installment_total INT,
+  payment_method TEXT DEFAULT 'pix',
+  entity_id TEXT REFERENCES public.entities(id) ON DELETE SET NULL,
+  is_paid BOOLEAN NOT NULL DEFAULT true,
+  paid_at TIMESTAMPTZ,
+  recurring_id TEXT REFERENCES public.recurring_transactions(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -60,10 +100,16 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 ALTER TABLE public.bank_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credit_cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.card_invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.entities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.entity_pix_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recurring_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
--- Políticas de RLS para acesso público (anon / authenticated) para prototipagem
+-- Políticas de RLS para acesso total
 CREATE POLICY "Permitir acesso completo a bank_accounts" ON public.bank_accounts FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Permitir acesso completo a credit_cards" ON public.credit_cards FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Permitir acesso completo a card_invoices" ON public.card_invoices FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Permitir acesso completo a entities" ON public.entities FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Permitir acesso completo a entity_pix_keys" ON public.entity_pix_keys FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Permitir acesso completo a recurring_transactions" ON public.recurring_transactions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Permitir acesso completo a transactions" ON public.transactions FOR ALL USING (true) WITH CHECK (true);

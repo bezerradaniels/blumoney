@@ -14,16 +14,16 @@ export const ProjectionBarChart: React.FC<ProjectionBarChartProps> = ({ projecti
   }));
 
   return (
-    <div className="dash-card p-6 h-full flex flex-col justify-between">
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 h-full flex flex-col justify-between shadow-xs">
       <div>
-        <h3 className="text-base font-bold text-white tracking-tight">Projeção de Faturas (6 Múltiplos Meses)</h3>
-        <p className="text-xs text-slate-400 mt-0.5">Compromissos acumulados em cartões de crédito (M+1 a M+6)</p>
+        <h3 className="text-base font-bold text-slate-900 tracking-tight">Projeção de Faturas (Próximos Meses)</h3>
+        <p className="text-xs text-slate-500 mt-0.5">Compromissos acumulados em cartões de crédito</p>
       </div>
 
       <div className="h-64 w-full mt-4">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
             <XAxis dataKey="label" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
             <YAxis
               stroke="#64748b"
@@ -34,17 +34,18 @@ export const ProjectionBarChart: React.FC<ProjectionBarChartProps> = ({ projecti
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#0f172a',
-                borderColor: '#334155',
+                backgroundColor: '#ffffff',
+                borderColor: '#cbd5e1',
                 borderRadius: '8px',
-                color: '#f8fafc',
+                color: '#0f172a',
                 fontSize: '12px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               }}
               formatter={(val: any) => [formatBRL(Number(val)), 'Compromisso Futuro']}
             />
             <Bar
               dataKey="Compromissos"
-              fill="#6366f1"
+              fill="#34d399"
               radius={[6, 6, 0, 0]}
               barSize={28}
             />

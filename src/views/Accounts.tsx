@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { PageContainer } from '../components/layout/PageContainer';
 import type { BankAccount, Transaction } from '../types/financial';
 import { formatBRL } from '../utils/formatters';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
-import { Plus, ArrowRightLeft, ShieldCheck } from 'lucide-react';
+import { CurrencyInput } from '../components/ui/CurrencyInput';
+import { Plus, ArrowRightLeft, ShieldCheck, Building2 } from 'lucide-react';
 
 interface AccountsViewProps {
   accounts: BankAccount[];
@@ -27,141 +27,161 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
   // New Account fields
   const [name, setName] = useState('');
   const [type, setType] = useState<'checking' | 'savings' | 'investment'>('checking');
-  const [balance, setBalance] = useState('');
-  const [color, setColor] = useState('#8A05BE');
+  const [balance, setBalance] = useState<number>(0);
+  const [color, setColor] = useState('#34d399');
   const [accountNumber, setAccountNumber] = useState('');
 
   // Transfer fields
   const [fromId, setFromId] = useState(() => (accounts[0] ? accounts[0].id : ''));
   const [toId, setToId] = useState(() => (accounts[1] ? accounts[1].id : ''));
-  const [transferAmount, setTransferAmount] = useState('');
+  const [transferAmount, setTransferAmount] = useState<number>(0);
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsedBalance = parseFloat(balance.replace(',', '.')) || 0;
+    if (!name.trim()) return;
     onAddBankAccount({
       name,
       type,
-      current_balance: parsedBalance,
+      current_balance: balance,
       color,
       account_number: accountNumber || '0001 / 12345-6',
     });
     setName('');
-    setBalance('');
+    setBalance(0);
     setIsAddModalOpen(false);
   };
 
   const handleTransferSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(transferAmount.replace(',', '.'));
-    if (isNaN(amount) || amount <= 0 || fromId === toId) return;
-    onTransfer(fromId, toId, amount);
-    setTransferAmount('');
+    if (transferAmount <= 0 || fromId === toId) return;
+    onTransfer(fromId, toId, transferAmount);
+    setTransferAmount(0);
     setIsTransferModalOpen(false);
   };
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.current_balance, 0);
 
   return (
-    <PageContainer
-      title="Contas Bancárias"
-      subtitle="Gerencie suas contas correntes, poupanças e carteiras de investimento."
-      actions={
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Building2 className="w-6 h-6 text-emerald-600" /> Contas Bancárias
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Gerencie suas contas correntes, poupanças e carteiras de investimento.
+          </p>
+        </div>
         <div className="flex items-center gap-3">
           <Button
             variant="secondary"
             size="sm"
-            icon={<ArrowRightLeft className="w-4 h-4" />}
+            icon={<ArrowRightLeft className="w-4 h-4 text-emerald-600" />}
             onClick={() => setIsTransferModalOpen(true)}
+            disabled={accounts.length < 2}
           >
             Transferência
           </Button>
           <Button
             variant="primary"
             size="sm"
-            icon={<Plus className="w-4 h-4" />}
+            icon={<Plus className="w-4 h-4 text-slate-950" />}
             onClick={() => setIsAddModalOpen(true)}
           >
             Nova Conta
           </Button>
         </div>
-      }
-    >
+      </div>
+
       <div className="space-y-6">
         {/* Total Summary Header */}
-        <div className="dash-card p-6 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/40 border border-slate-800 flex items-center justify-between">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Patrimônio Total em Contas
             </span>
-            <h2 className="text-3xl font-extrabold text-white mt-1 font-mono tracking-tight">
+            <h2 className="text-3xl font-extrabold text-slate-900 mt-1 font-mono tracking-tight">
               {formatBRL(totalBalance)}
             </h2>
           </div>
-          <div className="flex items-center gap-2 text-xs text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
-            <ShieldCheck className="w-4 h-4" />
-            <span>{accounts.length} contas ativas e sincronizadas</span>
+          <div className="flex items-center gap-2 text-xs text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 font-semibold">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>{accounts.length} contas ativas</span>
           </div>
         </div>
 
         {/* Accounts Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {accounts.map((acc) => {
-            const accTransactions = transactions.filter((t) => t.account_id === acc.id);
-            const totalIncomes = accTransactions
-              .filter((t) => t.type === 'income')
-              .reduce((sum, t) => sum + t.amount, 0);
-            const totalExpenses = accTransactions
-              .filter((t) => t.type === 'expense')
-              .reduce((sum, t) => sum + t.amount, 0);
+        {accounts.length === 0 ? (
+          <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl">
+            <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-sm font-semibold text-slate-700">Nenhuma conta cadastrada</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
+              Cadastre suas contas bancárias para gerenciar saldos, receitas e despesas.
+            </p>
+            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4 text-slate-950" />} onClick={() => setIsAddModalOpen(true)}>
+              Cadastrar Conta
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {accounts.map((acc) => {
+              const accTransactions = transactions.filter((t) => t.account_id === acc.id);
+              const totalIncomes = accTransactions
+                .filter((t) => t.type === 'income')
+                .reduce((sum, t) => sum + t.amount, 0);
+              const totalExpenses = accTransactions
+                .filter((t) => t.type === 'expense')
+                .reduce((sum, t) => sum + t.amount, 0);
 
-            return (
-              <div
-                key={acc.id}
-                className="dash-card p-6 flex flex-col justify-between dash-card-hover relative overflow-hidden"
-                style={{ borderTopWidth: '4px', borderTopColor: acc.color }}
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      {acc.type === 'checking'
-                        ? 'Conta Corrente'
-                        : acc.type === 'savings'
-                        ? 'Poupança'
-                        : 'Investimentos'}
-                    </span>
-                    <span
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: acc.color }}
-                    />
-                  </div>
-                  <h3 className="text-xl font-bold text-white mt-2">{acc.name}</h3>
-                  <p className="text-xs text-slate-400 font-mono mt-0.5">
-                    {acc.account_number || 'Ag. 0001 / Conta 123456-7'}
-                  </p>
-
-                  <div className="mt-6">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                      Saldo Atual
-                    </span>
-                    <p className="text-2xl font-extrabold text-white font-mono mt-0.5">
-                      {formatBRL(acc.current_balance)}
+              return (
+                <div
+                  key={acc.id}
+                  className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs hover:border-emerald-400 transition-all flex flex-col justify-between relative overflow-hidden"
+                  style={{ borderTopWidth: '4px', borderTopColor: acc.color }}
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        {acc.type === 'checking'
+                          ? 'Conta Corrente'
+                          : acc.type === 'savings'
+                          ? 'Poupança'
+                          : 'Investimentos'}
+                      </span>
+                      <span
+                        className="w-3.5 h-3.5 rounded-full border border-slate-300 shadow-xs"
+                        style={{ backgroundColor: acc.color }}
+                      />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 mt-2">{acc.name}</h3>
+                    <p className="text-xs text-slate-400 font-mono mt-0.5">
+                      {acc.account_number || 'Ag. 0001 / Conta 123456-7'}
                     </p>
+
+                    <div className="mt-6">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">
+                        Saldo Atual
+                      </span>
+                      <p className="text-2xl font-extrabold text-slate-900 font-mono mt-0.5">
+                        {formatBRL(acc.current_balance)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span>
+                      Entradas: <strong className="text-emerald-700 font-mono">{formatBRL(totalIncomes)}</strong>
+                    </span>
+                    <span>
+                      Saídas: <strong className="text-rose-600 font-mono">{formatBRL(totalExpenses)}</strong>
+                    </span>
                   </div>
                 </div>
-
-                <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                  <span>
-                    Entradas: <strong className="text-emerald-400 font-mono">{formatBRL(totalIncomes)}</strong>
-                  </span>
-                  <span>
-                    Saídas: <strong className="text-rose-400 font-mono">{formatBRL(totalExpenses)}</strong>
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Add Account Modal */}
@@ -169,7 +189,7 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         title="Cadastrar Nova Conta Bancária"
-        subtitle="Adicione uma conta corrente, conta de investimentos ou carteira."
+        subtitle="Adicione uma conta corrente, poupança ou carteira de investimentos."
       >
         <form onSubmit={handleAddSubmit} className="space-y-4">
           <Input
@@ -189,15 +209,12 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
             value={type}
             onChange={(e) => setType(e.target.value as any)}
           />
-          <Input
-            label="Saldo Inicial (R$)"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
-            value={balance}
-            onChange={(e) => setBalance(e.target.value)}
-            required
-          />
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1.5">
+              Saldo Inicial (Formato Bancário)
+            </label>
+            <CurrencyInput value={balance} onChange={setBalance} required />
+          </div>
           <Input
             label="Número da Conta / Agência (Opcional)"
             placeholder="ex.: 0001 / 987654-3"
@@ -205,17 +222,17 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
             onChange={(e) => setAccountNumber(e.target.value)}
           />
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-slate-300">
+            <label className="block text-xs font-medium text-slate-700">
               Cor de Identificação
             </label>
             <input
               type="color"
               value={color}
               onChange={(e) => setColor(e.target.value)}
-              className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg cursor-pointer p-1"
+              className="w-full h-10 bg-white border border-slate-300 rounded-lg cursor-pointer p-1"
             />
           </div>
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>
               Cancelar
             </Button>
@@ -252,16 +269,13 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
             value={toId}
             onChange={(e) => setToId(e.target.value)}
           />
-          <Input
-            label="Valor da Transferência (R$)"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
-            value={transferAmount}
-            onChange={(e) => setTransferAmount(e.target.value)}
-            required
-          />
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1.5">
+              Valor da Transferência (Formato Bancário)
+            </label>
+            <CurrencyInput value={transferAmount} onChange={setTransferAmount} required />
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             <Button type="button" variant="outline" onClick={() => setIsTransferModalOpen(false)}>
               Cancelar
             </Button>
@@ -271,6 +285,6 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
           </div>
         </form>
       </Modal>
-    </PageContainer>
+    </div>
   );
 };

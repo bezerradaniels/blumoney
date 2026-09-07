@@ -1,24 +1,27 @@
 import React, { useState } from 'react';
-import { PageContainer } from '../components/layout/PageContainer';
-import type { Transaction, BankAccount, CreditCard } from '../types/financial';
+import type { Transaction, BankAccount, CreditCard, Entity } from '../types/financial';
 import { RecentTransactionsTable } from '../components/dashboard/RecentTransactionsTable';
 import { Button } from '../components/ui/Button';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Receipt } from 'lucide-react';
 
 interface TransactionsViewProps {
   transactions: Transaction[];
   accounts: BankAccount[];
   cards: CreditCard[];
+  entities?: Entity[];
   onOpenNewTransaction: () => void;
   onDeleteTransaction: (id: string) => void;
+  onTogglePaid?: (id: string, isPaid: boolean) => void;
 }
 
 export const TransactionsView: React.FC<TransactionsViewProps> = ({
   transactions,
   accounts,
   cards,
+  entities = [],
   onOpenNewTransaction,
   onDeleteTransaction,
+  onTogglePaid,
 }) => {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -50,23 +53,29 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   });
 
   return (
-    <PageContainer
-      title="Histórico Completo de Transações"
-      subtitle="Filtre, pesquise e gerencie todas as entradas, saídas, parcelamentos e transferências."
-      actions={
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Receipt className="w-6 h-6 text-emerald-600" /> Histórico de Transações
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Filtre e gerencie todas as receitas, despesas, parcelamentos e status de pagamento (Pago / Pendente).
+          </p>
+        </div>
         <Button
           variant="primary"
-          size="sm"
-          icon={<Plus className="w-4 h-4" />}
+          icon={<Plus className="w-4 h-4 text-slate-950" />}
           onClick={onOpenNewTransaction}
         >
           Nova Transação
         </Button>
-      }
-    >
+      </div>
+
       <div className="space-y-6">
         {/* Search & Filters Bar */}
-        <div className="dash-card p-4 flex flex-col md:flex-row items-center gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center gap-4">
           <div className="flex-1 w-full relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -74,7 +83,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
               placeholder="Buscar por descrição ou categoria..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-950/80 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500"
             />
           </div>
 
@@ -83,7 +92,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer"
+              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none cursor-pointer"
             >
               <option value="all">Todos os Tipos</option>
               <option value="expense">Despesas</option>
@@ -95,7 +104,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer"
+              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none cursor-pointer"
             >
               <option value="all">Todas as Categorias</option>
               <option value="Alimentação">Alimentação</option>
@@ -113,7 +122,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              className="bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer"
+              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none cursor-pointer"
             >
               <option value="all">Todas as Origens</option>
               <optgroup label="Contas Bancárias">
@@ -139,10 +148,12 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           transactions={filteredTransactions}
           accounts={accounts}
           cards={cards}
+          entities={entities}
           onDeleteTransaction={onDeleteTransaction}
+          onTogglePaid={onTogglePaid}
           limit={100}
         />
       </div>
-    </PageContainer>
+    </div>
   );
 };

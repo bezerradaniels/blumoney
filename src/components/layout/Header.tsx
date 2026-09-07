@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onPeriodChange,
 }) => {
   return (
-    <header className="h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-20 flex items-center justify-between px-6">
+    <header className="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 flex items-center justify-between px-6 shadow-xs">
       {/* Search Bar */}
       <div className="flex items-center gap-4 flex-1 max-w-md">
         <div className="relative w-full">
@@ -29,8 +29,8 @@ export const Header: React.FC<HeaderProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Pesquisar transações, categorias ou cartões..."
-            className="w-full bg-slate-950/60 border border-slate-800 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+            placeholder="Pesquisar transações, pessoas, categorias..."
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
           />
         </div>
       </div>
@@ -38,17 +38,17 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Actions & Filters */}
       <div className="flex items-center gap-3">
         {/* Date Range Selector */}
-        <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300">
-          <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700">
+          <Calendar className="w-3.5 h-3.5 text-emerald-600" />
           <select
             value={selectedPeriod}
             onChange={(e) => onPeriodChange(e.target.value)}
-            className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer"
+            className="bg-transparent text-xs text-slate-800 focus:outline-none cursor-pointer"
           >
-            <option value="2026-09" className="bg-slate-900 text-slate-100">Setembro 2026 (Atual)</option>
-            <option value="2026-10" className="bg-slate-900 text-slate-100">Outubro 2026</option>
-            <option value="2026-11" className="bg-slate-900 text-slate-100">Novembro 2026</option>
-            <option value="all" className="bg-slate-900 text-slate-100">Todos os Períodos</option>
+            <option value="2026-09" className="bg-white text-slate-800">Setembro 2026 (Atual)</option>
+            <option value="2026-10" className="bg-white text-slate-800">Outubro 2026</option>
+            <option value="2026-11" className="bg-white text-slate-800">Novembro 2026</option>
+            <option value="all" className="bg-white text-slate-800">Todos os Períodos</option>
           </select>
         </div>
 
@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
         <Button
           variant="secondary"
           size="sm"
-          icon={<FileUp className="w-4 h-4 text-indigo-400" />}
+          icon={<FileUp className="w-4 h-4 text-emerald-600" />}
           onClick={onOpenPdfUpload}
         >
           Importar Fatura PDF
@@ -66,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({
         <Button
           variant="primary"
           size="sm"
-          icon={<Plus className="w-4 h-4" />}
+          icon={<Plus className="w-4 h-4 text-slate-950" />}
           onClick={onOpenNewTransaction}
         >
           Nova Transação
@@ -74,11 +74,11 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Notifications Icon */}
         <button
-          className="relative p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors ml-1"
+          className="relative p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors ml-1 cursor-pointer"
           title="Notificações"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
         </button>
       </div>
     </header>

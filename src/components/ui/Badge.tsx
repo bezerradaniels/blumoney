@@ -4,7 +4,7 @@ import { twMerge } from 'tailwind-merge';
 
 export interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'emerald' | 'rose' | 'indigo' | 'amber' | 'slate' | 'purple' | 'cyan';
+  variant?: 'emerald' | 'rose' | 'indigo' | 'amber' | 'slate' | 'purple' | 'cyan' | 'teal';
   size?: 'sm' | 'md';
   className?: string;
 }
@@ -16,13 +16,14 @@ export const Badge: React.FC<BadgeProps> = ({
   className,
 }) => {
   const variants = {
-    emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    rose: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-    indigo: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-    amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    slate: 'bg-slate-800/80 text-slate-300 border-slate-700/60',
-    purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-    cyan: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+    emerald: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold',
+    rose: 'bg-rose-50 text-rose-700 border-rose-200 font-semibold',
+    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold',
+    amber: 'bg-amber-50 text-amber-800 border-amber-200 font-semibold',
+    slate: 'bg-slate-100 text-slate-700 border-slate-200 font-medium',
+    purple: 'bg-purple-50 text-purple-700 border-purple-200 font-semibold',
+    cyan: 'bg-cyan-50 text-cyan-800 border-cyan-300 font-semibold',
+    teal: 'bg-teal-50 text-teal-800 border-teal-300 font-semibold',
   };
 
   const sizes = {

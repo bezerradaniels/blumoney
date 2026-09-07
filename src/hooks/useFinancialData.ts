@@ -5,6 +5,9 @@ import type {
   CardInvoice,
   Transaction,
   ParsedInvoiceItem,
+  Entity,
+  RecurringTransaction,
+  PaymentMethod,
 } from '../types/financial';
 import {
   INITIAL_BANK_ACCOUNTS,
@@ -19,6 +22,8 @@ const STORAGE_KEYS = {
   CARDS: 'dashbite_cards_v1',
   INVOICES: 'dashbite_invoices_v1',
   TRANSACTIONS: 'dashbite_transactions_v1',
+  ENTITIES: 'dashbite_entities_v1',
+  RECURRING: 'dashbite_recurring_v1',
 };
 
 export function useFinancialData() {
@@ -42,6 +47,16 @@ export function useFinancialData() {
     return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
   });
 
+  const [entities, setEntities] = useState<Entity[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ENTITIES);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.RECURRING);
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // Sync state to local storage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
@@ -58,6 +73,14 @@ export function useFinancialData() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
   }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ENTITIES, JSON.stringify(entities));
+  }, [entities]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.RECURRING, JSON.stringify(recurringTransactions));
+  }, [recurringTransactions]);
 
   // Derived financial metrics
   const totalNetBalance = useMemo(() => {
@@ -134,6 +157,9 @@ export function useFinancialData() {
     account_id?: string;
     credit_card_id?: string;
     installmentTotal?: number;
+    payment_method?: PaymentMethod;
+    entity_id?: string;
+    is_paid?: boolean;
   }) => {
     const {
       type,
@@ -144,6 +170,9 @@ export function useFinancialData() {
       account_id,
       credit_card_id,
       installmentTotal = 1,
+      payment_method,
+      entity_id,
+      is_paid = true,
     } = newTxData;
 
     // Case 1: Credit Card Purchase with Smart Installments (> 1)
@@ -161,9 +190,16 @@ export function useFinancialData() {
         existingInvoices: invoices,
       });
 
+      const updatedTxs = result.transactions.map((tx) => ({
+        ...tx,
+        payment_method: payment_method || ('credit_card' as PaymentMethod),
+        entity_id,
+        is_paid,
+      }));
+
       setCards((prev) => prev.map((c) => (c.id === card.id ? result.updatedCard : c)));
       setInvoices(result.generatedInvoices);
-      setTransactions((prev) => [...result.transactions, ...prev]);
+      setTransactions((prev) => [...updatedTxs, ...prev]);
       return;
     }
 
@@ -181,26 +217,36 @@ export function useFinancialData() {
           existingInvoices: invoices,
         });
 
+        const updatedTxs = result.transactions.map((tx) => ({
+          ...tx,
+          payment_method: payment_method || ('credit_card' as PaymentMethod),
+          entity_id,
+          is_paid,
+        }));
+
         setCards((prev) => prev.map((c) => (c.id === card.id ? result.updatedCard : c)));
         setInvoices(result.generatedInvoices);
-        setTransactions((prev) => [...result.transactions, ...prev]);
+        setTransactions((prev) => [...updatedTxs, ...prev]);
         return;
       }
     }
 
     // Case 3: Debit/Account Transaction (Income or Expense)
     const singleTx: Transaction = {
-      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
       type,
       description,
       amount,
       date,
       category,
       account_id,
+      payment_method: payment_method || 'pix',
+      entity_id,
+      is_paid,
       created_at: new Date().toISOString(),
     };
 
-    if (account_id) {
+    if (account_id && is_paid) {
       setAccounts((prev) =>
         prev.map((acc) => {
           if (acc.id !== account_id) return acc;
@@ -214,6 +260,115 @@ export function useFinancialData() {
     }
 
     setTransactions((prev) => [singleTx, ...prev]);
+  };
+
+  // Toggle paid status on a transaction
+  const togglePaidTransaction = (txId: string, isPaid: boolean) => {
+    setTransactions((prev) =>
+      prev.map((t) => {
+        if (t.id !== txId) return t;
+
+        // If paid status changes, adjust bank account balance accordingly
+        if (t.account_id && t.is_paid !== isPaid) {
+          const delta = t.type === 'income' ? t.amount : -t.amount;
+          const sign = isPaid ? 1 : -1;
+
+          setAccounts((accs) =>
+            accs.map((a) => (a.id === t.account_id ? { ...a, current_balance: a.current_balance + delta * sign } : a))
+          );
+        }
+
+        return {
+          ...t,
+          is_paid: isPaid,
+          paid_at: isPaid ? new Date().toISOString() : undefined,
+        };
+      })
+    );
+  };
+
+  // Entity Management (Pessoas e Empresas)
+  const addEntity = (entityData: Omit<Entity, 'id'>) => {
+    const newEntity: Entity = {
+      ...entityData,
+      id: `ent_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+      created_at: new Date().toISOString(),
+    };
+    setEntities((prev) => [...prev, newEntity]);
+  };
+
+  const updateEntity = (id: string, entityData: Omit<Entity, 'id'>) => {
+    setEntities((prev) =>
+      prev.map((e) => (e.id === id ? { ...entityData, id } : e))
+    );
+  };
+
+  const deleteEntity = (id: string) => {
+    setEntities((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  // Recurring Transactions Management (Transações Fixas)
+  const addRecurring = (recurringData: Omit<RecurringTransaction, 'id'>) => {
+    const newRec: RecurringTransaction = {
+      ...recurringData,
+      id: `rec_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+      created_at: new Date().toISOString(),
+    };
+    setRecurringTransactions((prev) => [...prev, newRec]);
+
+    // Automatically generate item into current month transactions as PENDENTE
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(newRec.due_day).padStart(2, '0');
+    const formattedDate = `${year}-${month}-${day}`;
+
+    addTransaction({
+      type: newRec.type,
+      description: newRec.description,
+      amount: newRec.amount,
+      date: formattedDate,
+      category: newRec.category,
+      account_id: newRec.account_id,
+      payment_method: newRec.payment_method || 'pix',
+      entity_id: newRec.entity_id,
+      is_paid: false,
+    });
+  };
+
+  const updateRecurring = (id: string, recurringData: Omit<RecurringTransaction, 'id'>) => {
+    setRecurringTransactions((prev) =>
+      prev.map((r) => (r.id === id ? { ...recurringData, id } : r))
+    );
+  };
+
+  const deleteRecurring = (id: string) => {
+    setRecurringTransactions((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  // Generate current month transactions from all active recurring items
+  const generateMonthlyTransactions = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+
+    recurringTransactions.forEach((rec) => {
+      if (!rec.is_active) return;
+      const day = String(rec.due_day).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+
+      addTransaction({
+        type: rec.type,
+        description: rec.description,
+        amount: rec.amount,
+        date: formattedDate,
+        category: rec.category,
+        account_id: rec.account_id,
+        payment_method: rec.payment_method || 'pix',
+        entity_id: rec.entity_id,
+        is_paid: false,
+      });
+    });
   };
 
   // Import items reconciled from PDF Invoice Parser
@@ -292,6 +447,8 @@ export function useFinancialData() {
       date: new Date().toISOString().split('T')[0],
       category: 'Transferência',
       account_id: fromAccountId,
+      payment_method: 'transfer',
+      is_paid: true,
       created_at: new Date().toISOString(),
     };
 
@@ -309,7 +466,6 @@ export function useFinancialData() {
     const card = cards.find((c) => c.id === invoice?.credit_card_id);
     if (!invoice || !card) return;
 
-    // Deduct amount from bank account
     setAccounts((prev) =>
       prev.map((acc) => {
         if (acc.id === bankAccountId) {
@@ -319,7 +475,6 @@ export function useFinancialData() {
       })
     );
 
-    // Restore available limit on card
     setCards((prev) =>
       prev.map((c) => {
         if (c.id === card.id) {
@@ -332,7 +487,6 @@ export function useFinancialData() {
       })
     );
 
-    // Mark invoice paid
     setInvoices((prev) =>
       prev.map((inv) => (inv.id === invoiceId ? { ...inv, status: 'paid' as const } : inv))
     );
@@ -344,10 +498,14 @@ export function useFinancialData() {
     setCards(INITIAL_CREDIT_CARDS);
     setInvoices(INITIAL_INVOICES);
     setTransactions(INITIAL_TRANSACTIONS);
+    setEntities([]);
+    setRecurringTransactions([]);
     localStorage.removeItem(STORAGE_KEYS.ACCOUNTS);
     localStorage.removeItem(STORAGE_KEYS.CARDS);
     localStorage.removeItem(STORAGE_KEYS.INVOICES);
     localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
+    localStorage.removeItem(STORAGE_KEYS.ENTITIES);
+    localStorage.removeItem(STORAGE_KEYS.RECURRING);
   };
 
   return {
@@ -355,6 +513,8 @@ export function useFinancialData() {
     cards,
     invoices,
     transactions,
+    entities,
+    recurringTransactions,
     totalNetBalance,
     totalCreditLimit,
     totalAvailableCredit,
@@ -364,12 +524,20 @@ export function useFinancialData() {
     monthlyExpenses,
     nextUpcomingInvoice,
     addTransaction,
+    togglePaidTransaction,
     importParsedInvoiceItems,
     addBankAccount,
     addCreditCard,
     transferBetweenAccounts,
     deleteTransaction,
     payInvoice,
+    addEntity,
+    updateEntity,
+    deleteEntity,
+    addRecurring,
+    updateRecurring,
+    deleteRecurring,
+    generateMonthlyTransactions,
     resetToDemoData,
   };
 }

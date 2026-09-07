@@ -3,14 +3,16 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
-import type { BankAccount, CreditCard } from '../../types/financial';
-import { Layers, ArrowDownCircle, ArrowUpCircle, CreditCard as CardIcon, RefreshCw } from 'lucide-react';
+import { CurrencyInput } from '../ui/CurrencyInput';
+import type { BankAccount, CreditCard, PaymentMethod, Entity } from '../../types/financial';
+import { Layers, ArrowDownCircle, ArrowUpCircle, CreditCard as CardIcon, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   accounts: BankAccount[];
   cards: CreditCard[];
+  entities?: Entity[];
   onAddTransaction: (data: {
     type: 'income' | 'expense' | 'transfer';
     description: string;
@@ -20,6 +22,9 @@ interface TransactionModalProps {
     account_id?: string;
     credit_card_id?: string;
     installmentTotal?: number;
+    payment_method?: PaymentMethod;
+    entity_id?: string;
+    is_paid?: boolean;
   }) => void;
 }
 
@@ -28,15 +33,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   onClose,
   accounts,
   cards,
+  entities = [],
   onAddTransaction,
 }) => {
   const [txTab, setTxTab] = useState<'card_expense' | 'debit_expense' | 'income' | 'transfer'>('card_expense');
   const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState<number>(0);
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [category, setCategory] = useState('Compras');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [selectedAccountId, setSelectedAccountId] = useState(() => (accounts[0] ? accounts[0].id : ''));
   const [selectedCardId, setSelectedCardId] = useState(() => (cards[0] ? cards[0].id : ''));
+  const [selectedEntityId, setSelectedEntityId] = useState('');
+  const [isPaid, setIsPaid] = useState<boolean>(true);
   const [installmentTotal, setInstallmentTotal] = useState('1');
 
   // Transfer fields
@@ -56,54 +65,75 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     { value: 'Investimentos', label: 'Investimentos & Rendimentos' },
   ];
 
+  const paymentMethodsList = [
+    { value: 'pix', label: 'PIX' },
+    { value: 'boleto', label: 'Boleto Bancário' },
+    { value: 'mercado_pago', label: 'Mercado Pago' },
+    { value: 'credit_card', label: 'Cartão de Crédito' },
+    { value: 'debit_card', label: 'Cartão de Débito' },
+    { value: 'transfer', label: 'Transferência / TED' },
+    { value: 'cash', label: 'Dinheiro' },
+  ];
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsedAmount = parseFloat(amount.replace(',', '.'));
-    if (isNaN(parsedAmount) || parsedAmount <= 0) return;
+    if (amount <= 0) return;
 
     if (txTab === 'card_expense') {
       onAddTransaction({
         type: 'expense',
         description: description || 'Compra no Cartão',
-        amount: parsedAmount,
+        amount,
         date,
         category,
         credit_card_id: selectedCardId,
         installmentTotal: parseInt(installmentTotal, 10) || 1,
+        payment_method: 'credit_card',
+        entity_id: selectedEntityId || undefined,
+        is_paid: isPaid,
       });
     } else if (txTab === 'debit_expense') {
       onAddTransaction({
         type: 'expense',
         description: description || 'Despesa em Conta',
-        amount: parsedAmount,
+        amount,
         date,
         category,
         account_id: selectedAccountId,
+        payment_method: paymentMethod,
+        entity_id: selectedEntityId || undefined,
+        is_paid: isPaid,
       });
     } else if (txTab === 'income') {
       onAddTransaction({
         type: 'income',
         description: description || 'Receita / Entradas',
-        amount: parsedAmount,
+        amount,
         date,
         category,
         account_id: selectedAccountId,
+        payment_method: paymentMethod,
+        entity_id: selectedEntityId || undefined,
+        is_paid: isPaid,
       });
     } else if (txTab === 'transfer') {
       onAddTransaction({
         type: 'transfer',
         description: 'Transferência Entre Contas',
-        amount: parsedAmount,
+        amount,
         date,
         category: 'Transferência',
         account_id: fromAccountId,
+        payment_method: 'transfer',
+        is_paid: true,
       });
     }
 
     // Reset & Close
     setDescription('');
-    setAmount('');
+    setAmount(0);
     setInstallmentTotal('1');
+    setIsPaid(true);
     onClose();
   };
 
@@ -112,57 +142,57 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Nova Transação Financeira"
-      subtitle="Registre uma despesa, receita, compra parcelada em cartão ou transferência."
+      subtitle="Registre receitas, despesas, parcelamentos de cartão, forma de pagamento e favorecido."
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* Navigation Tabs */}
-        <div className="grid grid-cols-4 gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
+        <div className="grid grid-cols-4 gap-1.5 p-1.5 bg-slate-100 rounded-xl border border-slate-200 text-xs">
           <button
             type="button"
             onClick={() => setTxTab('card_expense')}
-            className={`py-2 rounded-lg font-semibold flex flex-col items-center gap-1 transition-all ${
+            className={`py-2 rounded-lg font-semibold flex flex-col items-center gap-1 transition-all cursor-pointer ${
               txTab === 'card_expense'
-                ? 'bg-indigo-600 text-white shadow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-emerald-400 text-slate-950 font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <CardIcon className="w-3.5 h-3.5" />
+            <CardIcon className="w-4 h-4" />
             <span>Cartão</span>
           </button>
           <button
             type="button"
             onClick={() => setTxTab('debit_expense')}
-            className={`py-2 rounded-lg font-semibold flex flex-col items-center gap-1 transition-all ${
+            className={`py-2 rounded-lg font-semibold flex flex-col items-center gap-1 transition-all cursor-pointer ${
               txTab === 'debit_expense'
-                ? 'bg-rose-600 text-white shadow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-rose-500 text-white font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <ArrowDownCircle className="w-3.5 h-3.5" />
-            <span>Despesa Conta</span>
+            <ArrowDownCircle className="w-4 h-4" />
+            <span>Despesa</span>
           </button>
           <button
             type="button"
             onClick={() => setTxTab('income')}
-            className={`py-2 rounded-lg font-semibold flex flex-col items-center gap-1 transition-all ${
+            className={`py-2 rounded-lg font-semibold flex flex-col items-center gap-1 transition-all cursor-pointer ${
               txTab === 'income'
-                ? 'bg-emerald-600 text-white shadow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-emerald-500 text-white font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <ArrowUpCircle className="w-3.5 h-3.5" />
+            <ArrowUpCircle className="w-4 h-4" />
             <span>Receita</span>
           </button>
           <button
             type="button"
             onClick={() => setTxTab('transfer')}
-            className={`py-2 rounded-lg font-semibold flex flex-col items-center gap-1 transition-all ${
+            className={`py-2 rounded-lg font-semibold flex flex-col items-center gap-1 transition-all cursor-pointer ${
               txTab === 'transfer'
-                ? 'bg-purple-600 text-white shadow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-teal-500 text-white font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className="w-4 h-4" />
             <span>Transferência</span>
           </button>
         </div>
@@ -171,22 +201,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         <div className="space-y-4">
           <Input
             label="Descrição"
-            placeholder="ex.: Supermercado, Salário Tech Corp, iPhone..."
+            placeholder="ex.: Supermercado, Aluguel, Salário, Cliente X..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             required
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Valor (R$)"
-              type="number"
-              step="0.01"
-              placeholder="0,00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                Valor (Formato Bancário)
+              </label>
+              <CurrencyInput value={amount} onChange={setAmount} required />
+            </div>
             <Input
               label="Data da Operação"
               type="date"
@@ -196,18 +223,45 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             />
           </div>
 
-          {txTab !== 'transfer' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {txTab !== 'transfer' && (
+              <Select
+                label="Forma de Pagamento"
+                options={paymentMethodsList}
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              />
+            )}
+
+            {txTab !== 'transfer' && (
+              <Select
+                label="Categoria"
+                options={categoriesList}
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
+            )}
+          </div>
+
+          {/* Entity Favorecido / Pagador */}
+          {txTab !== 'transfer' && entities.length > 0 && (
             <Select
-              label="Categoria"
-              options={categoriesList}
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              label="Pessoa ou Empresa Favorecida / Pagadora"
+              options={[
+                { value: '', label: 'Nenhuma / Não vinculada' },
+                ...entities.map((ent) => ({
+                  value: ent.id,
+                  label: `${ent.name} (${ent.type === 'company' ? 'PJ' : 'PF'})`,
+                })),
+              ]}
+              value={selectedEntityId}
+              onChange={(e) => setSelectedEntityId(e.target.value)}
             />
           )}
 
-          {/* Card Purchase Smart Installment Options */}
+          {/* Card Purchase Options */}
           {txTab === 'card_expense' && (
-            <div className="space-y-4 p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
+            <div className="space-y-3 p-4 rounded-xl bg-emerald-50/50 border border-emerald-200">
               <Select
                 label="Selecione o Cartão de Crédito"
                 options={cards.map((c) => ({
@@ -219,13 +273,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               />
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-indigo-300 flex items-center gap-1">
+                <label className="block text-xs font-medium text-emerald-900 flex items-center gap-1">
                   <Layers className="w-3.5 h-3.5" /> Número de Parcelas (Smart Installment)
                 </label>
                 <select
                   value={installmentTotal}
                   onChange={(e) => setInstallmentTotal(e.target.value)}
-                  className="w-full bg-slate-950/70 border border-slate-800 rounded-lg text-sm text-slate-100 p-2 focus:border-indigo-500 focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-lg text-sm text-slate-800 p-2 focus:border-emerald-500 focus:outline-none"
                 >
                   <option value="1">À vista (1x)</option>
                   <option value="2">2x sem juros</option>
@@ -236,9 +290,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   <option value="10">10x sem juros</option>
                   <option value="12">12x sem juros</option>
                 </select>
-                <p className="text-[11px] text-slate-400">
-                  Compras a partir da data de fechamento entram na fatura do mês subsequente. O limite total é reservado imediatamente.
-                </p>
               </div>
             </div>
           )}
@@ -273,10 +324,27 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               />
             </div>
           )}
+
+          {/* Status de Pagamento (Pago / Pendente) */}
+          {txTab !== 'transfer' && (
+            <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <input
+                type="checkbox"
+                id="isPaidCheck"
+                checked={isPaid}
+                onChange={(e) => setIsPaid(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer"
+              />
+              <label htmlFor="isPaidCheck" className="text-xs font-semibold text-slate-800 cursor-pointer flex items-center gap-1.5">
+                <CheckCircle2 className={`w-4 h-4 ${isPaid ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span>Marcar como PAGO / LIQUIDADO nesta data</span>
+              </label>
+            </div>
+          )}
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
