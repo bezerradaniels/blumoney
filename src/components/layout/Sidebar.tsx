@@ -88,11 +88,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 space-y-3">
         <button
           onClick={onResetDemo}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-amber-400 hover:bg-slate-800/80 border border-slate-800 transition-colors"
-          title="Restaurar dados iniciais de demonstração"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-slate-800 transition-colors"
+          title="Zerar todas as contas, cartões e transações registradas"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span>Restaurar Dados Demo</span>
+          <span>Zerar Todos os Dados</span>
         </button>
 
         <div className="flex items-center gap-3 pt-1 border-t border-slate-800/60">
